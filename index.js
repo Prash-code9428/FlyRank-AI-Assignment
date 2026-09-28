@@ -1,10 +1,15 @@
+import 'dotenv/config';
 import express from 'express';
 import fs from 'fs';
 import swaggerUi from 'swagger-ui-express';
 import Database from 'better-sqlite3';
+import { supabase } from './supabaseClient.js';
+import { requireAuth } from './middleware/auth.js';
+
+export { supabase };
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
 // Initialize SQLite database
 const db = new Database('tasks.db');
@@ -51,6 +56,141 @@ app.get('/', (req, res) => {
 app.get('/health', (req, res) => {
   res.status(200).json({
     status: "ok"
+  });
+});
+
+// POST /auth/signup
+app.post('/auth/signup', async (req, res) => {
+  const { email, password } = req.body || {};
+
+  if (!email || typeof email !== 'string' || email.trim() === '' ||
+      !password || typeof password !== 'string' || password.trim() === '') {
+    return res.status(400).json({
+      error: "Email and password are required"
+    });
+  }
+
+  if (!supabase) {
+    return res.status(500).json({
+      error: "Supabase client is not configured"
+    });
+  }
+
+  try {
+    const { data, error } = await supabase.auth.signUp({
+      email: email.trim(),
+      password
+    });
+
+    if (error) {
+      return res.status(400).json({
+        error: error.message
+      });
+    }
+
+    if (!data.user) {
+      return res.status(400).json({
+        error: "Failed to create user"
+      });
+    }
+
+    return res.status(201).json(data.user);
+  } catch (err) {
+    return res.status(500).json({
+      error: err.message
+    });
+  }
+});
+
+// POST /auth/login
+app.post('/auth/login', async (req, res) => {
+  const { email, password } = req.body || {};
+
+  if (!email || typeof email !== 'string' || email.trim() === '' ||
+      !password || typeof password !== 'string' || password.trim() === '') {
+    return res.status(400).json({
+      error: "Email and password are required"
+    });
+  }
+
+  if (!supabase) {
+    return res.status(500).json({
+      error: "Supabase client is not configured"
+    });
+  }
+
+  try {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password
+    });
+
+    if (error || !data || !data.session) {
+      return res.status(401).json({
+        error: "Invalid login credentials"
+      });
+    }
+
+    return res.status(200).json({
+      access_token: data.session.access_token,
+      refresh_token: data.session.refresh_token
+    });
+  } catch (err) {
+    return res.status(500).json({
+      error: err.message
+    });
+  }
+});
+
+// POST /auth/logout
+app.post('/auth/logout', requireAuth, async (req, res) => {
+  if (!supabase) {
+    return res.status(500).json({
+      error: "Supabase client is not configured"
+    });
+  }
+
+  try {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      return res.status(500).json({
+        error: error.message
+      });
+    }
+
+    return res.status(204).send();
+  } catch (err) {
+    return res.status(500).json({
+      error: err.message
+    });
+  }
+});
+
+// GET /public/info
+app.get('/public/info', (req, res) => {
+  res.status(200).json({
+    message: "Welcome stranger! This info is public."
+  });
+});
+
+// GET /protected/profile
+app.get('/protected/profile', requireAuth, (req, res) => {
+  res.status(200).json({
+    id: req.user.id,
+    email: req.user.email,
+    created_at: req.user.created_at
+  });
+});
+
+// GET /protected/dashboard
+app.get('/protected/dashboard', requireAuth, (req, res) => {
+  res.status(200).json({
+    message: `Welcome to your dashboard, ${req.user.email}!`,
+    user: {
+      id: req.user.id,
+      email: req.user.email,
+      created_at: req.user.created_at
+    }
   });
 });
 

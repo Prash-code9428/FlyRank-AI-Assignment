@@ -1,153 +1,185 @@
-# Task CRUD API (SQLite Edition)
+# Task CRUD API (Auth & SQLite Edition)
 
-A simple REST API built with Node.js and Express to manage tasks, now upgraded to use a persistent SQLite database for Assignment A2. This project supports a full CRUD cycle, database persistence, task statistics, query-based filtering and searching, and interactive Swagger UI documentation.
+A robust REST API built with Node.js, Express, persistent SQLite storage, and secure authentication powered by Supabase Auth and JWT access tokens. This project features full CRUD management for tasks, database persistence across restarts, query filtering, aggregation statistics, reusable authentication middleware, and interactive Swagger UI documentation with Bearer authentication.
 
 ---
 
 ## 1. Project Description
 
-This is a Node.js + Express CRUD API for managing tasks. Originally built with in-memory storage, it has been migrated to SQLite to support data persistence across server restarts, while preserving all existing validation rules, status codes, and query logic.
+This project is a backend Task Management API built with Express.js. Originally implemented with in-memory storage (A1) and upgraded to a persistent SQLite database (A2/A3), this iteration (**Assignment A4**) introduces secure user authentication, token-based session management, and route protection using Supabase Auth, while strictly preserving all previous task CRUD capabilities, schema definitions, and validation logic.
 
 ---
 
-## 2. Technologies Used
+## 2. Assignment A4 – Authentication
 
-- **Node.js**
-- **Express.js**
-- **SQLite**
-- **better-sqlite3** (for synchronous SQLite operations in ES Modules)
-- **Swagger UI / OpenAPI 3.0**
+### Overview
+Assignment A4 upgrades the Task API with secure, stateless user authentication powered by Supabase Auth (`@supabase/supabase-js`) while preserving the existing SQLite task storage.
 
----
-
-## 3. Why SQLite?
-
-SQLite was chosen for this project because:
-- **Single-file database**: The entire database is stored in a single cross-platform file on disk (`tasks.db`).
-- **No server setup**: It requires no external database server or daemon process to be configured, run, or managed.
-- **Zero configuration**: It offers lightweight database persistence with zero external service dependencies.
-- **Persistence**: Unlike in-memory arrays, it keeps task data intact across application restarts.
-
----
-
-## 4. Database Setup & Seeding
-
-- **Database File**: The database is stored locally in `tasks.db`.
-- **Automatic Initialization**: The database file and the `tasks` table are created automatically when the application starts if they do not exist.
-- **Automatic Schema Creation**: The table schema is defined as:
-  - `id`: INTEGER PRIMARY KEY AUTOINCREMENT
-  - `title`: TEXT NOT NULL
-  - `done`: INTEGER DEFAULT 0 (representing the boolean status where `0 = false` and `1 = true`)
-- **Seeding Protection**: When the table is initialized, exactly three default tasks are seeded **only if the table is empty** (i.e. row count is 0). This prevents duplicate seed data on server restarts.
-- **Source of Truth**: The database is the single source of truth for all CRUD operations, statistics, and resets.
-- **Git Ignored**: The `tasks.db` file is explicitly ignored in Git so that each local clone initializes its own independent database.
+### Core Authentication Components:
+1. **Supabase Authentication**: Acts as the external Identity Provider (IdP) for managing user credentials, secure hashing, and authentication tokens.
+2. **Signup (`POST /auth/signup`)**: Registers a new user account with email and password via `supabase.auth.signUp()`.
+3. **Login (`POST /auth/login`)**: Authenticates users with credentials via `supabase.auth.signInWithPassword()` and returns JWT `access_token` and `refresh_token`.
+4. **JWT Access Tokens**: Stateless JSON Web Tokens securely encode identity and claims.
+5. **Bearer Authentication**: Protected endpoints require the `Authorization: Bearer <access_token>` header.
+6. **Protected Routes (`GET /protected/profile`, `GET /protected/dashboard`)**: Verified routes that expose authenticated user context.
+7. **Public Route (`GET /public/info`)**: Unprotected endpoint accessible without authentication.
+8. **Logout (`POST /auth/logout`)**: Protected endpoint that terminates the user session via `supabase.auth.signOut()`.
+9. **Reusable Authentication Middleware**: The `requireAuth` middleware ([middleware/auth.js](middleware/auth.js)) handles Bearer header extraction, validates format, calls `supabase.auth.getUser(token)`, and attaches `req.user`.
+10. **Swagger UI Authentication**: Full Bearer JWT authorization support with interactive lock controls at `/docs`.
 
 ---
 
-## 5. Installation
+## 3. Technologies Used
 
-To set up the project locally:
+- **Node.js** (ES Modules)
+- **Express.js** (v5.x)
+- **Supabase Auth** (`@supabase/supabase-js`)
+- **SQLite & better-sqlite3** (for synchronous local SQL operations)
+- **dotenv** (for environment variable management)
+- **Swagger UI & OpenAPI 3.0** (`swagger-ui-express`)
 
-1. **Navigate into the project folder**:
+---
+
+## 4. Environment Setup
+
+The application uses environment variables loaded via `dotenv`.
+
+### Configuration Template (`.env.example`)
+```env
+SUPABASE_URL=your_supabase_project_url
+SUPABASE_KEY=your_supabase_anon_or_publishable_key
+PORT=3000
+```
+
+> [!IMPORTANT]
+> Real credentials belong exclusively in `.env` and must **never** be committed to Git. `.env` is explicitly ignored by `.gitignore`.
+
+### Local Setup Instructions
+1. Copy `.env.example` to `.env`:
    ```bash
-   cd FlyRank
+   cp .env.example .env
    ```
+2. Populate `.env` with your Supabase project URL and public anon/publishable key.
 
-2. **Install dependencies**:
+---
+
+## 5. Installation & Startup
+
+1. **Install dependencies**:
    ```bash
    npm install
    ```
 
----
-
-## 6. Running the API
-
-Start the server using the standard project script:
-```bash
-npm start
-```
-The server will run at: **`http://localhost:3000`**.
+2. **Start the server**:
+   ```bash
+   npm start
+   ```
+   The API will be available at: **`http://localhost:3000`**.
 
 ---
 
-## 7. API Endpoints
+## 6. API Endpoints Reference
 
-| HTTP Method | Endpoint | Description | Success Status | Error Status |
-| :--- | :--- | :--- | :--- | :--- |
-| **GET** | `/` | Retrieve API metadata | `200 OK` | - |
-| **GET** | `/health` | Check API health status | `200 OK` | - |
-| **GET** | `/tasks` | Get all tasks (supports query filters `done=true\|false` and `search=keyword`) | `200 OK` | `400 Bad Request` |
-| **GET** | `/tasks/:id` | Get a task by its numeric ID | `200 OK` | `404 Not Found` |
-| **POST** | `/tasks` | Create a new task | `201 Created` | `400 Bad Request` |
-| **PUT** | `/tasks/:id` | Update a task's title and/or done status | `200 OK` | `400 Bad Request`, `404 Not Found` |
-| **DELETE** | `/tasks/:id` | Delete a task | `204 No Content` | `404 Not Found` |
-| **GET** | `/stats` | Retrieve dynamic task statistics | `200 OK` | - |
-| **POST** | `/reset` | Re-seed the tasks table with the default 3 tasks | `200 OK` | - |
+### Authentication & Protected Endpoints (A4)
 
----
+| Method | Endpoint | Auth Required? | Description | Success Status | Error Statuses |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **POST** | `/auth/signup` | No | Register new user account | `201 Created` | `400 Bad Request` |
+| **POST** | `/auth/login` | No | Login and obtain JWT tokens | `200 OK` | `400 Bad Request`, `401 Unauthorized` |
+| **POST** | `/auth/logout` | **Yes (Bearer)** | Terminate active user session | `204 No Content` | `401 Unauthorized` |
+| **GET** | `/public/info` | No | Public welcome message | `200 OK` | - |
+| **GET** | `/protected/profile` | **Yes (Bearer)** | Authenticated user profile metadata | `200 OK` | `401 Unauthorized` |
+| **GET** | `/protected/dashboard` | **Yes (Bearer)** | Authenticated user dashboard data | `200 OK` | `401 Unauthorized` |
 
-## 8. Persistence Demonstration
+### Task Management Endpoints (A1–A3)
 
-When you add a task using `POST /tasks`, the task is saved to `tasks.db`. You can verify persistence by:
-1. Creating a new task (e.g. "Buy milk") via POST.
-2. Stopping the server.
-3. Restarting the server with `npm start`.
-4. Fetching the task list via `GET /tasks`. The new task will still be present.
-
----
-
-## 9. SQL Example
-
-The following query retrieves all active (uncompleted) tasks:
-```sql
-SELECT * FROM tasks WHERE done = 0;
-```
-**Explanation**: This query selects all fields from the `tasks` table where the `done` integer is `0` (which maps to `false` in the application).
+| Method | Endpoint | Auth Required? | Description | Success Status | Error Statuses |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **GET** | `/` | No | API metadata | `200 OK` | - |
+| **GET** | `/health` | No | Service health check | `200 OK` | - |
+| **GET** | `/tasks` | No | Retrieve tasks (supports `done` and `search` query filters) | `200 OK` | `400 Bad Request` |
+| **GET** | `/tasks/:id` | No | Get task by numeric ID | `200 OK` | `404 Not Found` |
+| **POST** | `/tasks` | No | Create new task | `201 Created` | `400 Bad Request` |
+| **PUT** | `/tasks/:id` | No | Update task title and/or done status | `200 OK` | `400 Bad Request`, `404 Not Found` |
+| **DELETE** | `/tasks/:id` | No | Delete task by ID | `204 No Content` | `404 Not Found` |
+| **GET** | `/stats` | No | Aggregate task counts | `200 OK` | - |
+| **POST** | `/reset` | No | Reset task table to default 3 tasks | `200 OK` | - |
+| **GET** | `/docs` | No | Interactive Swagger documentation | `200 OK` | - |
 
 ---
 
-## 10. DB Browser Screenshots
+## 7. Status Code Specifications
 
-Below are the screenshots from DB Browser for SQLite demonstrating the database structure, schema, and records across the different stages of the database lifecycle:
+- `200 OK`: Request succeeded. Returned on successful login, profile retrieval, dashboard access, and task reads/updates.
+- `201 Created`: Resource created. Returned on user signup (`/auth/signup`) and task creation (`/tasks`).
+- `204 No Content`: Successful action with no response body. Returned on `/auth/logout` and `/tasks/:id` deletion.
+- `400 Bad Request`: Missing required input fields (`email`, `password`, `title`) or invalid query parameter formats.
+- `401 Unauthorized`: Authentication failure due to invalid login credentials, missing `Authorization` header, malformed token, or expired/tampered JWT.
+- `404 Not Found`: Target resource not found by ID.
+- `500 Internal Server Error`: Unhandled server exception.
+
+---
+
+## 8. Interactive Swagger UI Documentation
+
+Swagger UI is hosted at **`http://localhost:3000/docs`**.
+
+### Using Bearer Authentication in Swagger UI:
+1. Navigate to `http://localhost:3000/docs`.
+2. Click the green **Authorize 🔓** button in the upper-right corner.
+3. In the `bearerAuth (http, Bearer)` dialog, paste your JWT `access_token` and click **Authorize**.
+4. Protected routes (`/protected/profile`, `/protected/dashboard`, `/auth/logout`) will now display closed locks 🔒.
+5. Expand `/protected/profile`, click **Try it out**, and click **Execute** to send authenticated requests directly from the browser.
+
+![Swagger UI Bearer Authorization](docs/a4-swagger-auth.png)
+*Figure 1: Swagger UI showing OpenAPI 3.0 Bearer JWT security scheme and protected endpoints.*
+
+---
+
+## 9. Security & Best Practices
+
+- **Zero Local Password Storage**: Passwords are never stored, hashed, or processed in local SQLite files.
+- **No Password/Token Logging**: Application logs never output passwords, JWTs, or Authorization headers.
+- **Least Privilege**: Only the public Anon key is used. The `service_role` key is strictly prohibited and unconfigured.
+- **Cryptographic JWT Verification**: Every protected request is cryptographically validated with `supabase.auth.getUser()`.
+- **Git Security**: Environment credentials in `.env` are strictly excluded from source control.
+
+---
+
+## 10. Existing SQLite Database & Persistence (A1–A3)
+
+- **Database File**: Stored locally in `tasks.db` using `better-sqlite3`.
+- **Automatic Initialization**: Creates the `tasks` table schema on launch if missing.
+- **Default Seeding**: Seeds exactly 3 default tasks only when the table is empty.
+- **Data Persistence**: Task additions, updates, and deletions persist across server restarts.
+
+### DB Browser Screenshots
 
 ![DB Browser screenshot 1](docs/db-screenhot1.png)
-*Figure 1: Tasks table schema, columns, and default records (`SELECT * FROM tasks;`).*
+*Figure 2: Tasks table schema and default seeded records.*
 
 ![DB Browser screenshot 2](docs/db-screenhot2.png)
-*Figure 2: Query filtered by completion status (`SELECT * FROM tasks WHERE done = 1;`).*
+*Figure 3: Tasks filtered by completion status.*
 
 ![DB Browser screenshot 3](docs/db-screenhot3.png)
-*Figure 3: Aggregation query for total task count (`SELECT COUNT(*) FROM tasks;`).*
-
-![DB Browser screenshot 4](docs/db-screenhot4.png)
-*Figure 4: Bulk update query execution (`UPDATE tasks SET done = 1;`).*
-
-![DB Browser screenshot 5](docs/db-screenhot5.png)
-*Figure 5: Verification of updated records (`SELECT * FROM tasks;`).*
-
-![DB Browser screenshot 6](docs/db-screenhot6.png)
-*Figure 6: Delete query execution (`DELETE FROM tasks WHERE done = 1;`).*
-
-![DB Browser screenshot 7](docs/db-screenhot7.png)
-*Figure 7: Verification of tasks table state after record deletion (`SELECT * FROM tasks;`).*
+*Figure 4: Task aggregation query execution.*
 
 ---
 
-## 11. Project Structure
+## 11. Project File Structure
 
 ```text
-├── docs/                # SQLite database screenshots (db-screenhot1.png to 7)
-├── node_modules/        # Installed dependencies
-├── .gitignore           # Ignores node_modules, tasks.db, and SQLite temp files
-├── index.js             # Express application and SQLite CRUD logic
-├── openapi.json         # OpenAPI 3.0 specification file
-├── package.json         # Project metadata and dependencies
-├── package-lock.json    # Locked dependency tree
-└── README.md            # Project documentation (this file)
+├── docs/                        # Screenshots for Swagger and SQLite verification
+│   ├── a4-swagger-auth.png      # Swagger UI Bearer authentication screenshot
+│   └── db-screenhot1.png to 7   # SQLite database verification screenshots
+├── middleware/
+│   └── auth.js                  # Reusable Supabase Bearer JWT authentication middleware
+├── .env.example                 # Placeholder environment configuration template
+├── .gitignore                   # Excludes node_modules, .env, tasks.db, SQLite temp files
+├── index.js                     # Express application, routes, and SQLite logic
+├── openapi.json                 # OpenAPI 3.0 specification with Bearer security scheme
+├── package.json                 # Project dependencies and start scripts
+├── package-lock.json            # Locked dependency tree
+├── supabaseClient.js            # Initialized Supabase client module
+└── README.md                    # Comprehensive project documentation
 ```
-
----
-
-## 12. Important Note
-
-The database file `tasks.db` (along with transient files like `tasks.db-journal`) is intentionally excluded from the Git repository (via `.gitignore`). This ensures that the database is generated dynamically on startup on any host machine running this code, preventing conflicts and database corruption.

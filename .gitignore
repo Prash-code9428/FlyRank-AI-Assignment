@@ -3,3 +3,6 @@ tasks.db
 *.db-journal
 *.db-wal
 *.db-shm
+.env
+.env.*
+!.env.example
