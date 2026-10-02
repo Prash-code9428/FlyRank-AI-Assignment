@@ -1,0 +1,7 @@
+# Scraper cache and output artifacts
+cache/*
+!cache/.gitkeep
+output/*
+!output/.gitkeep
+node_modules/
+.env
