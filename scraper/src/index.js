@@ -1,24 +1,29 @@
 /**
  * FlyRank Backend Track - Week 5 Assignment A9: The Polite Scraper
- * Stage 2: Discover the three catalogue pages
+ * Stage 3: Extract raw book details
  */
 
 import { discoverBookUrls } from './discovery.js';
+import { extractAllBookDetails } from './extractor.js';
 
 async function main() {
-  console.log('--- A9 Stage 2: Discover Catalogue Pages ---');
+  console.log('--- A9 Stage 3: Extract Raw Book Details ---');
   try {
-    const { cataloguePages, discovered, uniqueUrls } = await discoverBookUrls({
+    const discovery = await discoverBookUrls({
       startUrl: 'https://books.toscrape.com/catalogue/page-1.html',
       maxPages: 3,
       delayMs: 500,
     });
 
-    console.log(`catalogue_pages=${cataloguePages}`);
-    console.log(`discovered=${discovered}`);
-    console.log(`unique_urls=${uniqueUrls.length}`);
+    console.log(`Discovered ${discovery.uniqueUrls.length} unique book URLs across ${discovery.cataloguePages} catalogue pages.`);
+
+    const rawRecords = await extractAllBookDetails(discovery.items, { delayMs: 500 });
+
+    console.log(`detail_pages=${rawRecords.length}`);
+    console.log('\n--- Sample Raw Record ---');
+    console.log(JSON.stringify(rawRecords[0], null, 2));
   } catch (error) {
-    console.error('Error in Stage 2 discovery:', error.message);
+    console.error('Error in Stage 3 extraction:', error.message);
     process.exitCode = 1;
   }
 }

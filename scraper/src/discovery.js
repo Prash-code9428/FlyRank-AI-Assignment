@@ -47,7 +47,7 @@ export function parseCataloguePage(html, pageUrl) {
  * @param {string} [options.startUrl] - Initial catalogue URL
  * @param {number} [options.maxPages] - Max catalogue pages to crawl (default: 3)
  * @param {number} [options.delayMs] - Politeness delay between real HTTP fetches (default: 500ms)
- * @returns {Promise<{ cataloguePages: number, discovered: number, uniqueUrls: string[] }>}
+ * @returns {Promise<{ cataloguePages: number, discovered: number, uniqueUrls: string[], items: Array<{ url: string, sourcePage: string }> }>}
  */
 export async function discoverBookUrls(options = {}) {
   const startUrl = options.startUrl || 'https://books.toscrape.com/catalogue/page-1.html';
@@ -57,6 +57,7 @@ export async function discoverBookUrls(options = {}) {
   let currentUrl = startUrl;
   let pageCount = 0;
   const allDiscovered = [];
+  const rawItems = [];
 
   while (currentUrl && pageCount < maxPages) {
     pageCount++;
@@ -67,6 +68,7 @@ export async function discoverBookUrls(options = {}) {
 
     for (const url of bookUrls) {
       allDiscovered.push(url);
+      rawItems.push({ url, sourcePage: currentUrl });
     }
 
     currentUrl = nextUrl;
@@ -78,11 +80,21 @@ export async function discoverBookUrls(options = {}) {
   }
 
   // Deduplicate discovered URLs while preserving deterministic order
-  const uniqueUrls = Array.from(new Set(allDiscovered));
+  const seen = new Set();
+  const items = [];
+  for (const item of rawItems) {
+    if (!seen.has(item.url)) {
+      seen.add(item.url);
+      items.push(item);
+    }
+  }
+
+  const uniqueUrls = items.map((i) => i.url);
 
   return {
     cataloguePages: pageCount,
     discovered: allDiscovered.length,
     uniqueUrls,
+    items,
   };
 }
