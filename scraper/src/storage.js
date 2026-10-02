@@ -27,3 +27,18 @@ export async function saveOutputFiles(validRecords, invalidRecords) {
 
   return { booksFile, errorsFile };
 }
+
+/**
+ * Writes the execution run report to scraper/output/run-report.json.
+ *
+ * @param {object} reportData
+ * @returns {Promise<string>} Path to run-report.json
+ */
+export async function saveRunReport(reportData) {
+  await ensureOutputDir();
+
+  const reportFile = path.resolve(OUTPUT_DIR, 'run-report.json');
+  await fs.writeFile(reportFile, JSON.stringify(reportData, null, 2), 'utf8');
+
+  return reportFile;
+}

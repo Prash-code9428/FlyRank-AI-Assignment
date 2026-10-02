@@ -73,30 +73,60 @@ export function extractRawBookDetails(html, productUrl, sourcePage) {
 }
 
 /**
- * Fetches, caches, and extracts raw book details for a list of discovered book objects.
+ * Resiliently fetches, caches, and extracts raw book details for a list of discovered book objects.
+ * Survives individual page failures without crashing the entire scraper run.
  *
  * @param {Array<{ url: string, sourcePage: string }>} discoveredBooks
  * @param {object} [options]
  * @param {number} [options.delayMs] - Delay between real network requests (default: 500ms)
- * @returns {Promise<Array<object>>}
+ * @returns {Promise<{ rawRecords: Array<object>, failedPages: Array<object>, stats: { networkFetches: number, cacheHits: number } }>}
  */
 export async function extractAllBookDetails(discoveredBooks, options = {}) {
   const delayMs = options.delayMs !== undefined ? options.delayMs : 500;
   const rawRecords = [];
+  const failedPages = [];
+  let networkFetches = 0;
+  let cacheHits = 0;
 
   for (let i = 0; i < discoveredBooks.length; i++) {
     const { url, sourcePage } = discoveredBooks[i];
     const cacheFilename = getBookCacheFilename(url);
 
-    const { html, fromCache } = await fetchWithCache(url, cacheFilename);
-    const record = extractRawBookDetails(html, url, sourcePage);
-    rawRecords.push(record);
+    try {
+      const { html, fromCache } = await fetchWithCache(url, cacheFilename);
 
-    // Apply politeness delay strictly between real network requests
-    if (!fromCache && i < discoveredBooks.length - 1 && delayMs > 0) {
-      await sleep(delayMs);
+      if (fromCache) {
+        cacheHits++;
+      } else {
+        networkFetches++;
+      }
+
+      const record = extractRawBookDetails(html, url, sourcePage);
+      rawRecords.push(record);
+
+      // Apply politeness delay strictly between real network requests
+      if (!fromCache && i < discoveredBooks.length - 1 && delayMs > 0) {
+        await sleep(delayMs);
+      }
+    } catch (err) {
+      console.error(`[PAGE FAILURE] Failed to process book URL ${url}: ${err.message}`);
+      failedPages.push({
+        url,
+        source_page: sourcePage,
+        error: err.message,
+        stage: 'fetch_or_extract',
+        failed_at: new Date().toISOString(),
+      });
+      // Continue loop resiliently
     }
   }
 
-  return rawRecords;
+  return {
+    rawRecords,
+    failedPages,
+    stats: {
+      networkFetches,
+      cacheHits,
+    },
+  };
 }
