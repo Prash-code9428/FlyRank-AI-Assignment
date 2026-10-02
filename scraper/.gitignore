@@ -1,7 +1,7 @@
-# Scraper cache and output artifacts
+# Scraper cache (do not commit raw HTML cache)
 cache/*
 !cache/.gitkeep
-output/*
-!output/.gitkeep
+
+# Local env and dependencies
 node_modules/
 .env

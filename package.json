@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "start": "node index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "scraper": "node scraper/src/index.js",
+    "scraper:test-failure": "node scraper/src/index.js --simulate-failure"
   },
   "keywords": [],
   "author": "",

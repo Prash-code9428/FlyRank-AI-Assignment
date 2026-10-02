@@ -1,0 +1,14 @@
+{
+  "start_time": "2026-10-02T06:10:47.677Z",
+  "end_time": "2026-10-02T06:10:47.980Z",
+  "duration_ms": 303,
+  "duration_seconds": 0.3,
+  "catalogue_pages": 3,
+  "pages_fetched": 0,
+  "cache_hits": 63,
+  "valid_records": 60,
+  "invalid_records": 0,
+  "failed_pages": 0,
+  "duplicate_records": 0,
+  "simulate_failure_mode": false
+}
